@@ -20,6 +20,13 @@ SUBCOMMAND_PLAY_VIBRATION_PRESET = 0x02
 
 used_addresses = set()
 
+class SimpleGamepad:
+    def __init__(self):
+        self._last_inputs = {
+            "RIGHT": {"buttons": {}},
+            "LEFT": {"buttons": {}},
+        }
+
 class Player:
     def __init__(self, number, controller_type, side=None):
         self.number = number
@@ -29,6 +36,7 @@ class Player:
 
         # Explicit garbage collection to prevent reuse issues
         gc.collect()
+        self.gamepad = SimpleGamepad()
 
 def decode_joystick(data):
     try:
@@ -83,10 +91,17 @@ async def scan_device(prompt="controller"):
 
     return selected_device
 
+def to_bytes_auto_length(integer, byteorder='big', signed=False):
+    length = (integer.bit_length() + 7) // 8
+    if length == 0:
+        length = 1 # Represent 0 as a single byte b'\x00'
+    return integer.to_bytes(length, byteorder=byteorder, signed=signed)
+
 async def write_command(client, command_id, subcommand_id, buffer):
     # Pad buffer to 8 bytes minimum because some buffer lengths seems to crash
     buffer = buffer.ljust(8, b'\0')
-    await client.write_gatt_char(WRITE_COMMAND_UUID, command_id.to_bytes() + b"\x91\x01" + subcommand_id.to_bytes() + b"\x00" + len(buffer).to_bytes() + b"\x00\x00" + buffer)
+    command = to_bytes_auto_length(command_id) + b"\x91\x01" + to_bytes_auto_length(subcommand_id) + b"\x00" + to_bytes_auto_length(len(buffer)) + b"\x00\x00" + buffer
+    await client.write_gatt_char(WRITE_COMMAND_UUID, command)
 
 async def play_vibration_preset(client, preset_id):
     await write_command(client, COMMAND_VIBRATION, SUBCOMMAND_PLAY_VIBRATION_PRESET, preset_id.to_bytes())
@@ -192,12 +207,12 @@ async def main():
                     await c.disconnect()
 
             # NEW: Explicitly remove virtual gamepad
-            if hasattr(p, "gamepad") and p.gamepad:
-                try:
-                    p.gamepad.reset()
-                    del p.gamepad
-                except Exception as e:
-                    print(f"Error removing gamepad for player {p.number}: {e}")
+            # if hasattr(p, "gamepad") and p.gamepad:
+            #    try:
+            #        p.gamepad.reset()
+            #        del p.gamepad
+            #    except Exception as e:
+            #        print(f"Error removing gamepad for player {p.number}: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())

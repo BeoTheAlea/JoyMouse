@@ -33,17 +33,17 @@ with open(BUTTONS_MAP_FILE, 'r') as file:
 
 mouse = pynput.mouse.Controller()
 MOUSE_MAP = {
-        'MOUSE_LEFT': pynput.mouse.Button.Left,
-        'MOUSE_Right': pynput.mouse.Button.Right,
+        'MOUSE_LEFT': pynput.mouse.Button.left,
+        'MOUSE_RIGHT': pynput.mouse.Button.right,
     }
 keyboard = pynput.keyboard.Controller()
 KEYBOARD_MAP = {
-        'CTRL', pynput.keyboard.Key.ctrl
-        'SHIFT', pynput.keyboard.Key.shift,
-        'SPACE', pynput.keyboard.Key.space
+        'CTRL': pynput.keyboard.Key.ctrl,
+        'SHIFT': pynput.keyboard.Key.shift,
+        'SPACE': pynput.keyboard.Key.space,
     }
 
-DEAD_ZONE = 0.25
+DEAD_ZONE = 0.5
 NDEAD_ZONE = -1 * DEAD_ZONE
 
 def decode_joystick(data):
@@ -69,12 +69,17 @@ def Release(button: str):
     else:
         keyboard.release(button)
 
-def DecodeMouseCoords(buffer)
-    if (buffer.size() < 0x18):
-        return (960, 471)
+def DecodeMouseCoords(buffer):
+    if (len(buffer) < 0x18):
+        return (960, 466)
 
     raw_x = buffer[0x11] << 8 | buffer[0x10]
     raw_y = buffer[0x13] << 8 | buffer[0x12]
+    print(f'First raws {raw_x}, {raw_y}')
+        
+    second_raw_x = buffer[0x0F] << 8 | buffer[0x0E]
+    second_raw_y = buffer[0x11] << 8 | buffer[0x10]
+    print(f'Second raws {second_raw_x}, {second_raw_y}')
 
     norm_x = max(-1.0, min(raw_x / 32767, 1.0))
     norm_y = max(-1.0, min(raw_y / 32767, 1.0))
@@ -94,8 +99,8 @@ async def handle_duo_notification(sender, data, side, gamepad):
     # Init previous state if not present
     if not hasattr(gamepad, "_last_inputs"):
         gamepad._last_inputs = {
-            "RIGHT": {},
-            "LEFT": {},
+            "RIGHT": {"buttons": {}},
+            "LEFT": {"buttons": {}},
         }
 
     last = gamepad._last_inputs
@@ -103,7 +108,8 @@ async def handle_duo_notification(sender, data, side, gamepad):
     # Mouse
     if side == "RIGHT":
         mouse_x, mouse_y = DecodeMouseCoords(data)
-        mouse.move(mouse_x, mouse_y)
+        print(f'I think the mouse is {mouse_x}, {mouse_y}')
+##        mouse.move(mouse_x, mouse_y)
 
     # Joystick
     stick = data[10:13]
@@ -114,10 +120,15 @@ async def handle_duo_notification(sender, data, side, gamepad):
             'LEFT': x < NDEAD_ZONE,
             'RIGHT': x > DEAD_ZONE,
         }
-    for direction, val in joysticks.items:
+    for direction, val in joysticks.items():
         key = f'STICK_{direction}'
-        if val != last[side].get(key):
+        last_val = last[side].get(key, None)
+        if val != last_val:
+            last[side][key] = val
             button = BUTTONS_MAP[side][key]
+            if button == '' or button is None:
+                continue
+
             if val:
                 Press(button)
             else:
@@ -127,9 +138,12 @@ async def handle_duo_notification(sender, data, side, gamepad):
     for name, mask in BUTTON_CODES[side].items():
         pressed = bool(state & mask)
         button = BUTTONS_MAP[side][name]
-        if last["buttons"][side].get(btn) != pressed:
+        if button == '' or button is None:
+            continue
+
+        if last[side]["buttons"].get(name) != pressed:
+            last[side]["buttons"][name] = pressed
             if pressed:
                 Press(button)
             else:
                 Release(button)
-            last["buttons"][side][btn] = pressed

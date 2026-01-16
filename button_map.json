@@ -10,8 +10,8 @@
         "STICK_DOWN": "",
         "STICK_LEFT": "",
         "STICK_RIGHT": "",
-        "SHOULDER": "",
-        "TRIGGER": ""
+        "SHOULDER": "MOUSE_LEFT",
+        "TRIGGER": "MOUSE_RIGHT"
     },
     "LEFT": {
         "UP":     "",
@@ -24,7 +24,7 @@
         "STICK_DOWN": "s",
         "STICK_LEFT": "a",
         "STICK_RIGHT": "d",
-        "SHOULDER": "MOUSE_LEFT",
-        "TRIGGER": "MOUSE_RIGHT"
+        "SHOULDER": "",
+        "TRIGGER": ""
     }
 }
