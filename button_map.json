@@ -1,30 +1,30 @@
 {
     "RIGHT": {
-        "A":     "SPACE",
-        "B":     "SHIFT",
+        "A":     "R",
+        "B":     "T",
         "X":     "Q",
         "Y":     "E",
-        "PLUS":  "",
-        "STICK": "",
-        "STICK_UP": "",
-        "STICK_DOWN": "",
-        "STICK_LEFT": "",
-        "STICK_RIGHT": "",
+        "PLUS":  "I",
+        "STICK": "J",
+        "STICK_UP": "K",
+        "STICK_DOWN": "L",
+        "STICK_LEFT": "M",
+        "STICK_RIGHT": "N",
         "SHOULDER": "MOUSE_LEFT",
         "TRIGGER": "MOUSE_RIGHT"
     },
     "LEFT": {
-        "UP":     "",
-        "DOWN":   "",
-        "LEFT":   "",
-        "RIGHT":  "",
-        "MINUS":  "",
-        "STICK":  "CTRL",
+        "UP":     "A",
+        "DOWN":   "B",
+        "LEFT":   "C",
+        "RIGHT":  "D",
+        "MINUS":  "E",
+        "STICK":  "G",
         "STICK_UP": "w",
         "STICK_DOWN": "s",
         "STICK_LEFT": "a",
         "STICK_RIGHT": "d",
-        "SHOULDER": "",
-        "TRIGGER": ""
+        "SHOULDER": "G",
+        "TRIGGER": "H"
     }
 }

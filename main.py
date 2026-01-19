@@ -25,6 +25,9 @@ class SimpleGamepad:
         self._last_inputs = {
             "RIGHT": {"buttons": {}},
             "LEFT": {"buttons": {}},
+            "raw": [],
+            "mouse_index": 0,
+            "mouse_cords":  (0, 0),
         }
 
 class Player:

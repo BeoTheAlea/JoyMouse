@@ -4,10 +4,10 @@ import pynput
 
 BUTTON_CODES = {
     "RIGHT": {
-        "A":         0x000400,
-        "B":         0x000800,
-        "X":         0x000100,
-        "Y":         0x000200,
+        "A":         0x000800,
+        "B":         0x000400,
+        "X":         0x000200,
+        "Y":         0x000100,
         "PLUS":      0x000002,
         "STICK":     0x000004,
         "SHOULDER":  0x004000,
@@ -43,7 +43,7 @@ KEYBOARD_MAP = {
         'SPACE': pynput.keyboard.Key.space,
     }
 
-DEAD_ZONE = 0.5
+DEAD_ZONE = 10000
 NDEAD_ZONE = -1 * DEAD_ZONE
 
 def decode_joystick(data):
@@ -69,23 +69,21 @@ def Release(button: str):
     else:
         keyboard.release(button)
 
-def DecodeMouseCoords(buffer):
+def DecodeMouseCoords(buffer, index = 0):
     if (len(buffer) < 0x18):
         return (960, 466)
 
     raw_x = buffer[0x11] << 8 | buffer[0x10]
     raw_y = buffer[0x13] << 8 | buffer[0x12]
-    print(f'First raws {raw_x}, {raw_y}')
-        
-    second_raw_x = buffer[0x0F] << 8 | buffer[0x0E]
-    second_raw_y = buffer[0x11] << 8 | buffer[0x10]
-    print(f'Second raws {second_raw_x}, {second_raw_y}')
 
+    raw_x = buffer[index+1] << 8 | buffer[index]
+    raw_y = buffer[index+3] << 8 | buffer[index+2]
+    
     norm_x = max(-1.0, min(raw_x / 32767, 1.0))
     norm_y = max(-1.0, min(raw_y / 32767, 1.0))
 
-    x = (norm_x + 1) * 0.5 * 1920
-    y = (1 - (norm_y + 1) * 0.5) * 932
+    x = (norm_x + 1) * 0.5 * 100
+    y = (1 - (norm_y + 1) * 0.5) * 100
 
     return (x, y)
 
@@ -96,27 +94,23 @@ async def handle_duo_notification(sender, data, side, gamepad):
     # This is how the C++ version does state. Might bee important.
     # uint32_t state = (buffer[btnOffset] << 16) | (buffer[btnOffset + 1] << 8) | buffer[btnOffset + 2];
 
-    # Init previous state if not present
-    if not hasattr(gamepad, "_last_inputs"):
-        gamepad._last_inputs = {
-            "RIGHT": {"buttons": {}},
-            "LEFT": {"buttons": {}},
-        }
-
     last = gamepad._last_inputs
 
     # Mouse
-    if side == "RIGHT":
-        mouse_x, mouse_y = DecodeMouseCoords(data)
-        print(f'I think the mouse is {mouse_x}, {mouse_y}')
-##        mouse.move(mouse_x, mouse_y)
+    if side == "RIGHT" :
+        mouse_x, mouse_y = DecodeMouseCoords(data, last['mouse_index'])
+        if (mouse_x, mouse_y) != last['mouse_cords']:
+            print(f'I think the mouse is {mouse_x}, {mouse_y}')
+        last['mouse_cords'] = (mouse_x, mouse_y)
+##        mouse.position = (mouse_x, mouse_y)
+
 
     # Joystick
-    stick = data[10:13]
+    stick = data[10:13] if side == "LEFT" else data[13:16]
     x, y = decode_joystick(stick)
     joysticks = {
-            'UP': y < NDEAD_ZONE,
-            'DOWN': y > DEAD_ZONE,
+            'UP': y > DEAD_ZONE,
+            'DOWN': y < NDEAD_ZONE,
             'LEFT': x < NDEAD_ZONE,
             'RIGHT': x > DEAD_ZONE,
         }
@@ -145,5 +139,11 @@ async def handle_duo_notification(sender, data, side, gamepad):
             last[side]["buttons"][name] = pressed
             if pressed:
                 Press(button)
+                if  name == 'X':
+                    last['mouse_index'] += 1
+                    print(last['mouse_index'])
+                if  name == 'Y':
+                    last['mouse_index'] -= 1
+                    print(last['mouse_index'])
             else:
                 Release(button)
