@@ -25,9 +25,8 @@ class SimpleGamepad:
         self._last_inputs = {
             "RIGHT": {"buttons": {}},
             "LEFT": {"buttons": {}},
+            "mouse_cords": (0, 0),
             "raw": [],
-            "mouse_index": 0,
-            "mouse_cords":  (0, 0),
         }
 
 class Player:
@@ -110,8 +109,10 @@ async def play_vibration_preset(client, preset_id):
     await write_command(client, COMMAND_VIBRATION, SUBCOMMAND_PLAY_VIBRATION_PRESET, preset_id.to_bytes())
 
 async def enable_imu(client):
-    ENABLE_IMU_1 = bytes([0x0c, 0x91, 0x01, 0x02, 0x00, 0x04, 0x00, 0x00, 0x2f, 0x00, 0x00, 0x00])
-    ENABLE_IMU_2 = bytes([0x0c, 0x91, 0x01, 0x04, 0x00, 0x04, 0x00, 0x00, 0x2f, 0x00, 0x00, 0x00])
+    # I don't know what these do excpt that the 0xff 4th from end is required
+    # to turn on both mouse and motion.
+    ENABLE_IMU_1 = bytes([0x0c, 0x91, 0x01, 0x02, 0x00, 0x04, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00])
+    ENABLE_IMU_2 = bytes([0x0c, 0x91, 0x01, 0x04, 0x00, 0x04, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00])
     await client.write_gatt_char(WRITE_COMMAND_UUID, ENABLE_IMU_1)
     await asyncio.sleep(0.5)
     await client.write_gatt_char(WRITE_COMMAND_UUID, ENABLE_IMU_2)
@@ -152,7 +153,7 @@ async def maintain_connection_loop(client, device, player, handler_func, *handle
                 await client.connect()
                 await handler_func(client, player, *handler_args)
                 print(f"🔄 Reconnected to {device.address}")
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
         except Exception as e:
             print(f"⚠️ Connection lost or error: {e}")
             if client.is_connected:
@@ -186,36 +187,24 @@ async def setup_player(number):
         return player
 
 async def main():
+    player = None
     try:
-        players = []
-        count = int(input("How many players? ").strip())
-        for i in range(1, count + 1):
-            player = await setup_player(i)
-            if not player:
-                print("❌ Setup failed. Exiting.")
-                return
-            players.append(player)
+        player = await setup_player(1)
+        if not player:
+            print("❌ Setup failed. Exiting.")
+            return
 
-        print("🎮 All players connected. Press Ctrl+C to stop.")
+        print("🎮 Player connected. Press Ctrl+C to stop.")
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
 
     except KeyboardInterrupt:
         print("\nExiting...")
 
     finally:
-        for p in players:
-            for c in p.clients:
-                if c.is_connected:
-                    await c.disconnect()
-
-            # NEW: Explicitly remove virtual gamepad
-            # if hasattr(p, "gamepad") and p.gamepad:
-            #    try:
-            #        p.gamepad.reset()
-            #        del p.gamepad
-            #    except Exception as e:
-            #        print(f"Error removing gamepad for player {p.number}: {e}")
+        for c in player.clients:
+            if c.is_connected:
+                await c.disconnect()
 
 if __name__ == "__main__":
     asyncio.run(main())

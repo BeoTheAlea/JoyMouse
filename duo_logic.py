@@ -30,6 +30,10 @@ BUTTONS_MAP_FILE = os.path.join(LOCAL_DIR, 'button_map.json')
 BUTTONS_MAP = {}
 with open(BUTTONS_MAP_FILE, 'r') as file:
     BUTTONS_MAP = json.loads(file.read())
+SETTINGS_FILE = os.path.join(LOCAL_DIR, 'settings.json')
+SETTINGS = {}
+with open(SETTINGS_FILE, 'r') as file:
+    SETTINGS = json.loads(file.read())
 
 mouse = pynput.mouse.Controller()
 MOUSE_MAP = {
@@ -69,41 +73,44 @@ def Release(button: str):
     else:
         keyboard.release(button)
 
-def DecodeMouseCoords(buffer, index = 0):
+def sign(n):
+    return -1 if n < 0 else 1
+
+MAX_MOUSE = 65474
+HALF_MOUSE = 32767
+def DecodeMouseCoords(buffer, gamepad):
     if (len(buffer) < 0x18):
-        return (960, 466)
+        return (0, 0)
 
     raw_x = buffer[0x11] << 8 | buffer[0x10]
     raw_y = buffer[0x13] << 8 | buffer[0x12]
 
-    raw_x = buffer[index+1] << 8 | buffer[index]
-    raw_y = buffer[index+3] << 8 | buffer[index+2]
-    
-    norm_x = max(-1.0, min(raw_x / 32767, 1.0))
-    norm_y = max(-1.0, min(raw_y / 32767, 1.0))
+    last_x, last_y = gamepad._last_inputs['mouse_cords']
+    # x and y can wrap around, so check and assume its the smaller movement
+    # 1) find the normal new - old distance
+    # 2) find the wrap around compliment via the opposite signed modulo
+    # 3) take the smaller distance.
+    delta_x = raw_x - last_x
+    delta_x_c = delta_x % (-1 * sign(delta_x) * MAX_MOUSE)
+    move_x = delta_x if abs(delta_x) < abs(delta_x_c) else delta_x_c
+    delta_y = raw_y- last_y
+    delta_y_c = delta_y % (-1 * sign(delta_y) * MAX_MOUSE)
+    move_y = delta_y if abs(delta_y) < abs(delta_y_c) else delta_y_c
+    gamepad._last_inputs['mouse_cords'] = (raw_x, raw_y)
 
-    x = (norm_x + 1) * 0.5 * 100
-    y = (1 - (norm_y + 1) * 0.5) * 100
-
-    return (x, y)
+    sens = SETTINGS['sensitivity']
+    return (move_x * sens, move_y * sens)
 
 async def handle_duo_notification(sender, data, side, gamepad):
     offset = 4 if side == "LEFT" else 3
     state = int.from_bytes(data[offset:offset+3], 'big')
 
-    # This is how the C++ version does state. Might bee important.
-    # uint32_t state = (buffer[btnOffset] << 16) | (buffer[btnOffset + 1] << 8) | buffer[btnOffset + 2];
-
     last = gamepad._last_inputs
 
     # Mouse
     if side == "RIGHT" :
-        mouse_x, mouse_y = DecodeMouseCoords(data, last['mouse_index'])
-        if (mouse_x, mouse_y) != last['mouse_cords']:
-            print(f'I think the mouse is {mouse_x}, {mouse_y}')
-        last['mouse_cords'] = (mouse_x, mouse_y)
-##        mouse.position = (mouse_x, mouse_y)
-
+        mouse_x, mouse_y = DecodeMouseCoords(data, gamepad)
+        mouse.move(mouse_x, mouse_y)
 
     # Joystick
     stick = data[10:13] if side == "LEFT" else data[13:16]
@@ -139,11 +146,5 @@ async def handle_duo_notification(sender, data, side, gamepad):
             last[side]["buttons"][name] = pressed
             if pressed:
                 Press(button)
-                if  name == 'X':
-                    last['mouse_index'] += 1
-                    print(last['mouse_index'])
-                if  name == 'Y':
-                    last['mouse_index'] -= 1
-                    print(last['mouse_index'])
             else:
                 Release(button)
