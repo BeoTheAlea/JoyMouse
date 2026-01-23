@@ -45,6 +45,7 @@ KEYBOARD_MAP = {
         'CTRL': pynput.keyboard.Key.ctrl,
         'SHIFT': pynput.keyboard.Key.shift,
         'SPACE': pynput.keyboard.Key.space,
+        'ESC': pynput.keyboard.Key.esc
     }
 
 DEAD_ZONE = 10000
